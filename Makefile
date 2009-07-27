@@ -1,12 +1,12 @@
-CXXFLAGS = -g -I../angelscript/sdk/angelscript/include -I../libjit-ppc/include  -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -Iarmjit
+CXXFLAGS = -O2 -I../angelscript/sdk/angelscript/include -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -Iarmjit
 CC = arm-apple-darwin9-gcc-4.0.1
 CXX = arm-apple-darwin9-g++-4.0.1
 LD = ld
-LDFLAGS = -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -lstdc++ -langelscript -ljit -lm -ldl -lpthread -L../angelscript/sdk/angelscript/lib-ipod -L../libjit-ipod/lib/
+LDFLAGS = -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -lstdc++ -langelscript -L../angelscript/sdk/angelscript/lib-ipod
 DELETER = rm -f
 
 OBJDIR = ipod
-SRCNAMES = test.cpp utils.cpp section.cpp asjit.cpp \
+SRCNAMES = test.cpp utils.cpp \
 	armjit/block.cpp \
 	armjit/registermanager.cpp \
 	armjit/as_jit_arm.cpp

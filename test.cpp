@@ -3,7 +3,6 @@
 //
 
 #include "utils.h"
-#include "asjit.h"
 #include "as_jit_arm.h"
 
 #define TESTNAME "asJITTest"
