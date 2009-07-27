@@ -1,7 +1,6 @@
 #include "as_jit_arm_op.h"
 #include "registermanager.h"
 
-#define assert(x)
 
 #include "as_jit_arm.h"
 #include <stdarg.h>

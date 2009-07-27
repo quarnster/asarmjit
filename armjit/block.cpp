@@ -2,8 +2,6 @@
 
 #define VERBOSE_DEBUG
 
-#define assert(x)
-
 Block::Block(asCJitArm *j, int start, int end)
 {
     jit = j;

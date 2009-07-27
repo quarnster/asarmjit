@@ -64,6 +64,7 @@ private:
     asDWORD *currMachine;
     asDWORD currData[256];
     int currCodeOffset;
+    int prologueLen;
     int codelen;
     int datalen;
     int implementedInstructionSize;

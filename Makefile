@@ -29,8 +29,12 @@ $(BIN): $(OBJ)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
+depend:
+	makedepend $(SRCNAMES) -f Makefile.depend 2> /dev/null
 	
 clean:
-	$(DELETER) $(OBJ) $(BIN)
+	$(DELETER) $(OBJ) $(BIN) *.bak
+
 
 .PHONY: all clean install uninstall
+include Makefile.depend

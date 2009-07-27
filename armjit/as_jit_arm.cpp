@@ -421,9 +421,17 @@ void asCJitArm::SplitIntoBlocks(const asDWORD* bytecode, int bytecodeLen)
             printf("    register %d\n", blocks[i].registersUsed[j].id);
         }
     }
+
+    // Code block that flushes the temp variables out to the VM
     Block s2(this, bytecodeLen, bytecodeLen);
     s2.isJumpTarget = true;
     blocks.push_back(s2);
+
+    // Code block that flushes the value register, but skips the temp variables.
+    // This should only be jumped to by the RET bytecode.
+    Block s3(this, bytecodeLen+1, bytecodeLen+1);
+    s3.isJumpTarget = true;
+    blocks.push_back(s3);
 }
 
 int asCJitArm::GetImplementedInstructionCount()
@@ -532,6 +540,36 @@ static void PrintByteCode(const asDWORD *bytecode)
     }
 }
 
+static void GetConditions(asDWORD testopcode, int &cond1, int &cond2)
+{
+    switch (testopcode)
+    {
+        case asBC_TS:
+            cond1 = COND_MI;
+            cond2 = COND_PL;
+            break;
+        case asBC_TNS:
+            cond1 = COND_PL;
+            cond2 = COND_MI;
+            break;
+        case asBC_TZ:
+            cond1 = COND_EQ;
+            cond2 = COND_NE;
+            break;
+        case asBC_TNZ:
+            cond1 = COND_NE;
+            cond2 = COND_EQ;
+            break;
+        case asBC_TP:
+            cond1 = COND_GT;
+            cond2 = COND_LE;
+            break;
+        default:
+            assert(0);
+            break;
+    }    
+}
+
 int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITFunction *output)
 {
     this->bytecode = bytecode;
@@ -549,14 +587,10 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
     registerManager->CreateRegisterMap(blocks, registerUsage);
 
     InsertFunctionPrologue(registerUsage);
-    int prologueLen = codelen;
+    prologueLen = codelen;
 
-//    i = 0;
     bool parseCode = false;
-//    int suspendOffset = 0;
     int blockPos = 0;
-
-
 
     currBlock = &blocks[blockPos];
     Block *currSuspend = currBlock;
@@ -770,29 +804,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                         int cond1 = 0;
                         int cond2 = 0;
 
-                        switch (testopcode)
-                        {
-                            case asBC_TS:
-                                cond1 = COND_MI;
-                                cond2 = COND_PL;
-                                break;
-                            case asBC_TNS:
-                                cond1 = COND_PL;
-                                cond2 = COND_MI;
-                                break;
-                            case asBC_TZ:
-                                cond1 = COND_EQ;
-                                cond2 = COND_NE;
-                                break;
-                            case asBC_TNZ:
-                                cond1 = COND_NE;
-                                cond2 = COND_EQ;
-                                break;
-                            case asBC_TP:
-                                cond1 = COND_GT;
-                                cond2 = COND_LE;
-                                break;
-                        }
+                        GetConditions(testopcode, cond1, cond2);
 
                         bc += asBCTypeSize[asBCInfo[testopcode].type];
 
@@ -827,49 +839,19 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     break;
                 }
                 case asBC_TP:
-                {
-                    int reg = currSuspend->GetNative(AS_REGISTER1);
-                    AddCode(arm_mov(COND_AL, reg, reg, SETCOND_BIT));
-                    AddCode(arm_mov(COND_GT, reg, 1, IMM_BIT));
-                    AddCode(arm_mov(COND_LE, reg, 0, IMM_BIT));
-                    currSuspend->WriteToRegister(AS_REGISTER1);
-                    break;
-                }
                 case asBC_TS:
-                {
-                    int reg = currSuspend->GetNative(AS_REGISTER1);
-                    AddCode(arm_mov(COND_AL, reg, reg, SETCOND_BIT));
-                    AddCode(arm_mov(COND_MI, reg, 1, IMM_BIT));
-                    AddCode(arm_mov(COND_PL, reg, 0, IMM_BIT));
-                    currSuspend->WriteToRegister(AS_REGISTER1);
-
-                    break;
-                }
                 case asBC_TNS:
-                {
-                    int reg = currSuspend->GetNative(AS_REGISTER1);
-                    AddCode(arm_mov(COND_AL, reg, reg, SETCOND_BIT));
-                    AddCode(arm_mov(COND_PL, reg, 1, IMM_BIT));
-                    AddCode(arm_mov(COND_MI, reg, 0, IMM_BIT));
-                    currSuspend->WriteToRegister(AS_REGISTER1);
-                    break;
-                }
                 case asBC_TZ:
-                {
-                    int reg = currSuspend->GetNative(AS_REGISTER1);
-                    AddCode(arm_mov(COND_AL, reg, reg, SETCOND_BIT));
-                    AddCode(arm_mov(COND_EQ, reg, 1, IMM_BIT));
-                    AddCode(arm_mov(COND_NE, reg, 0, IMM_BIT));
-                    currSuspend->WriteToRegister(AS_REGISTER1);
-                    break;
-                }
                 case asBC_TNZ:
                 {
                     int reg = currSuspend->GetNative(AS_REGISTER1);
+                    int condtrue, condfalse;
+                    GetConditions(opcode, condtrue, condfalse);
                     AddCode(arm_mov(COND_AL, reg, reg, SETCOND_BIT));
-                    AddCode(arm_mov(COND_NE, reg, 1, IMM_BIT));
-                    AddCode(arm_mov(COND_EQ, reg, 0, IMM_BIT));
+                    AddCode(arm_mov(condtrue, reg, 1, IMM_BIT));
+                    AddCode(arm_mov(condfalse, reg, 0, IMM_BIT));
                     currSuspend->WriteToRegister(AS_REGISTER1);
+
                     break;
                 }
                 case asBC_ClrHi:
@@ -955,7 +937,6 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     op1 = currSuspend->GetNative(op1);
                     op2 = currSuspend->GetNative(op2);
                     d  = currSuspend->GetNative(d);
-                    
 
                     switch (opcode)
                     {
@@ -998,14 +979,15 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 }
                 case asBC_JitEntry:
                     break;
-/*
+
                 case asBC_RET:
                 {
                     implementedInstructionSize -= size;
                     currSuspend->Return();
+                    AddCode(arm_b(COND_AL, (bytecodeLen+1)*4, REVISIT_JUMP_BIT));
                     break;
                 }
-*/
+
                 default:
                     // currSuspend->hasUnimplementedBytecode = true;
                     printf("888888888888888888888888888888888888888888888\n");
@@ -1029,7 +1011,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
         bytecodePos += size;
     }
 
-    blocks[blocks.size()-1].nativeOffset = currCodeOffset+codelen-prologueLen;
+    blocks[blocks.size()-2].nativeOffset = currCodeOffset+codelen-prologueLen;
     InsertFunctionEpilogue(registerUsage);
 
     // Patch up code as needed
@@ -1097,13 +1079,22 @@ void asCJitArm::EndCompile()
 
 void asCJitArm::InsertFunctionEpilogue(std::vector<ASRegister> &registerUsage)
 {
+    ASRegister vr(0, false);
     for (unsigned int i = 0; i < registerUsage.size(); i++)
     {
         if (registerUsage[i].nativeMapping == REGISTER_EMPTY)
             break;
         if (registerUsage[i].writtenTo)
-            registerManager->SaveRegister(registerUsage[i].id, registerUsage[i].nativeMapping);
+        {
+            if (registerUsage[i].id != AS_REGISTER1)
+                registerManager->SaveRegister(registerUsage[i].id, registerUsage[i].nativeMapping);
+            else
+                vr = registerUsage[i];
+        }
     }
+    blocks[blocks.size()-1].nativeOffset = currCodeOffset+codelen-prologueLen;
+    if (vr.id == AS_REGISTER1) // means it was indeed written to
+        registerManager->SaveRegister(vr.id, vr.nativeMapping);
     int registerUseMask = registerManager->GetUsedMask();
     AddCode(arm_ldm(COND_AL, REG_SP, (1<<REG_PC)|registerUseMask, IA_BIT|WRITEBACK_BIT));
     currMachine[currCodeOffset] |= registerUseMask;
