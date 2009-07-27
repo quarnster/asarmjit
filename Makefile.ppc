@@ -1,0 +1,29 @@
+CXXFLAGS = -fno-gcse -I../angelscript/sdk/angelscript/include -I../libjit-ppc/include
+CC = gcc
+CXX = g++
+LD = ld
+LDFLAGS = -lstdc++ -langelscript -ljit -L../angelscript/sdk/angelscript/lib -L../libjit-ppc/jit/.libs/
+DELETER = rm -f
+
+OBJDIR = $(JITPLATFORM)
+SRCNAMES = test.cpp utils.cpp section.cpp asjit.cpp
+SRCDIR = ./
+
+OBJ = $(addprefix $(OBJDIR)/, $(notdir $(SRCNAMES:.cpp=.o)))
+
+BIN = asjittest
+	
+all: $(BIN)
+
+$(BIN): $(OBJ)
+	$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
+
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
+
+	
+clean:
+	$(DELETER) $(OBJ) $(BIN)
+
+.PHONY: all clean install uninstall
