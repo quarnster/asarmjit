@@ -72,6 +72,8 @@ private:
 
     friend class Block;
     friend class RegisterManager;
+    friend class ARMRegisterManager;
+    friend class VFPRegisterManager;
 };
 
 END_AS_NAMESPACE

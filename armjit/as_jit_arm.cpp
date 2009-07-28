@@ -13,6 +13,8 @@ BEGIN_AS_NAMESPACE
 
 #include "block.h"
 #include "registermanager.h"
+#include "armregistermanager.h"
+#include "vfpregistermanager.h"
 
 #ifdef _WIN32_WCE
 #include <windows.h>
@@ -32,7 +34,7 @@ asCJitArm::asCJitArm(asIScriptEngine *engine)
 {
     m_refCount = 1;
     m_engine->AddRef();
-    registerManager = new RegisterManager(this);
+    registerManager = new ARMRegisterManager(this);
 }
 
 asCJitArm::~asCJitArm()

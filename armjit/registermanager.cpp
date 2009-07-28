@@ -7,29 +7,33 @@
 #include <vector>
 
 #define REQUIRED_SCRATCH_REGISTERS 4
-#define MAX_REG REG_R12
 
-static int usedMask = 0;
-static int lastUsedCount = 0;
-static int lastUsed[MAX_REG+1];
-static int loadedRegisters[MAX_REG+1];
-static bool dirtyRegisters[MAX_REG+1];
-static int usedRegisters[MAX_REG+1];
-
-RegisterManager::RegisterManager(asCJitArm *j)
+RegisterManager::RegisterManager(asCJitArm *j, int regCount, int sMask)
 : jit(j)
 {
-    for (int i = 0; i <= MAX_REG; i++)
+    saveMask        = sMask;
+    registerCount   = regCount;
+    usedMask        = 0;
+    lastUsedCount   = 0;
+    lastUsed        = new int[registerCount+1];
+    loadedRegisters = new int[registerCount+1];
+    dirtyRegisters  = new bool[registerCount+1];
+    usedRegisters   = new int[registerCount+1];
+    for (int i = 0; i <= registerCount; i++)
     {
         usedRegisters[i] = REGISTER_EMPTY;
     }
     // Don't overwrite the native stack pointer...
-    if (MAX_REG > REG_R13)
+    if (registerCount > REG_R13)
         usedRegisters[REG_R13] = RESERVED;
 }
 
 RegisterManager::~RegisterManager()
 {
+    delete[] lastUsed;
+    delete[] loadedRegisters;
+    delete[] dirtyRegisters;
+    delete[] usedRegisters;
 }
 
 void RegisterManager::FreeRegister(int native)
@@ -39,7 +43,7 @@ void RegisterManager::FreeRegister(int native)
 
 void RegisterManager::FreeRegisters()
 {
-    for (int r = REG_R1; r <= MAX_REG; r++)
+    for (int r = REG_R1; r <= registerCount; r++)
     {
         usedRegisters[r] = REGISTER_EMPTY;
     }
@@ -47,7 +51,7 @@ void RegisterManager::FreeRegisters()
 int RegisterManager::FindRegister(int asRegister)
 {
     int r = REG_R1;
-    for (; r <= MAX_REG; r++)
+    for (; r <= registerCount; r++)
     {
         if (usedRegisters[r] == asRegister)
         {
@@ -60,7 +64,7 @@ int RegisterManager::FindRegister(int asRegister)
 
 void RegisterManager::UseRegister(int native, int as)
 {
-    if (native >= REG_R4 && native < REG_R12)
+    if (saveMask & (1 << native))
         // Need to save this register as the call convention expects this.
         // The prologue stm instruction will be patched later
         usedMask |= (1 << native);
@@ -78,63 +82,13 @@ void RegisterManager::WriteTo(int native)
     dirtyRegisters[native] = true;
 }
 
-void RegisterManager::SaveRegister(int asRegister, int native)
-{
-    switch (asRegister)
-    {
-        case AS_REGISTER1:
-        {
-            jit->AddCode(arm_str(COND_AL, native, REG_R0, offsetof(asSVMRegisters, valueRegister), PRE_BIT|IMM_BIT));
-            break;
-        }
-        default:
-        {
-            int fp = AllocateRegister(AS_STACK_FRAME_POINTER, true, false, true);
-            jit->AddCode(arm_str(COND_AL, native, fp, -usedRegisters[native]*4, PRE_BIT|IMM_BIT));
-            break;
-        }
-    }
-}
-
-void RegisterManager::LoadRegister(int asRegister, int native)
-{
-    switch (asRegister)
-    {
-        case AS_BC:
-        {
-            jit->AddCode(arm_ldr(COND_AL, native, REG_R0, offsetof(asSVMRegisters, programPointer), PRE_BIT|IMM_BIT));
-            break;
-        }
-        case AS_STACK_FRAME_POINTER:
-        {
-            loadedRegisters[native] = 1;
-            jit->AddCode(arm_ldr(COND_AL, native, REG_R0, offsetof(asSVMRegisters, stackFramePointer), PRE_BIT|IMM_BIT));
-            break;
-        }
-        case AS_REGISTER1:
-        {
-            loadedRegisters[native] = 1;
-            jit->AddCode(arm_ldr(COND_AL, native, REG_R0, offsetof(asSVMRegisters, valueRegister), PRE_BIT|IMM_BIT));
-            break;
-        }
-        default:
-        {
-            loadedRegisters[native] = 1;
-            int fp = AllocateRegister(AS_STACK_FRAME_POINTER, true, false, true);
-            jit->AddCode(arm_ldr(COND_AL, native, fp, (-asRegister*4), PRE_BIT|IMM_BIT));
-            break;
-        }
-    }
-}
-
 int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first, bool kickout)
 {
-    // r0 is reserved as the "this" pointer of the asCContext
-    int r = REG_R1;
+    int r = 0;
     int unused = REGISTER_EMPTY;
     if (first)
     {
-        for (; r <= MAX_REG; r++)
+        for (; r <= registerCount; r++)
         {
             if (usedRegisters[r] == REGISTER_EMPTY)
             {
@@ -145,7 +99,7 @@ int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first,
     }
     else
     {
-        for (; r <= MAX_REG; r++)
+        for (; r <= registerCount; r++)
         {
             if (usedRegisters[r] == REGISTER_EMPTY && (unused == REGISTER_EMPTY || r >= REG_R12))
                 unused = r;
@@ -158,8 +112,9 @@ int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first,
     r = unused;
     if (r == REGISTER_EMPTY)
     {
-        int least = MAX_REG-REQUIRED_SCRATCH_REGISTERS-1;
-        for (r = MAX_REG-REQUIRED_SCRATCH_REGISTERS; r < MAX_REG; r++)
+        // Couldn't find an unused slot, so need to kick out another register
+        int least = registerCount-REQUIRED_SCRATCH_REGISTERS-1;
+        for (r = registerCount-REQUIRED_SCRATCH_REGISTERS; r < registerCount; r++)
         {
             if (lastUsed[r] < lastUsed[least])
             {
@@ -222,10 +177,10 @@ void RegisterManager::CreateRegisterMap(std::vector<Block> &blocks, std::vector<
     printf("REGISTERS USED\n");
     printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
     int cutOffIdx = totalRegisterUsage.size();
-    if (totalRegisterUsage.size() > MAX_REG-REQUIRED_SCRATCH_REGISTERS)
+    if (totalRegisterUsage.size() > registerCount-REQUIRED_SCRATCH_REGISTERS)
     {
         // All registers don't fit, so we can't have a 1-1 mapping
-        cutOffIdx = MAX_REG-REQUIRED_SCRATCH_REGISTERS;
+        cutOffIdx = registerCount-REQUIRED_SCRATCH_REGISTERS;
     }
     
     for (int i = 0; i < cutOffIdx; i++)

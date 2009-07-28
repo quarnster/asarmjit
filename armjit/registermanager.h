@@ -2,7 +2,6 @@
 #define __INCLUDED_REGISTERMANAGER_H
 
 #include "as_jit_arm_op.h"
-//#include "as_jit_arm.h"
 #include "block.h"
 
 enum 
@@ -16,7 +15,6 @@ enum
     AS_CONTEXT,
     RESERVED,
 
-    CALLCONV_FREE_REGISTERMASK = (1<<REG_R0)|(1<<REG_R1)|(1<<REG_R2)|(1<<REG_R3)|(1<<REG_R12)|(1<<REG_R14),
     REGISTER_EMPTY = 1 << 17,
     REGISTER_TEMP = 1 << 18,
     REGISTER_TEMP2
@@ -44,8 +42,8 @@ class asCJitArm;
 class RegisterManager
 {
 public:
-    RegisterManager(asCJitArm *j);
-    ~RegisterManager();
+    RegisterManager(asCJitArm *j, int registerCount, int saveMask);
+    virtual ~RegisterManager();
 
     int GetUsedMask();
     void FreeRegisters();
@@ -53,13 +51,22 @@ public:
     int FindRegister(int asRegister);
     void UseRegister(int native, int as);
 
-    void LoadRegister(int asRegister, int native);
-    void SaveRegister(int asRegister, int native);
+    virtual void LoadRegister(int asRegister, int native) = 0;
+    virtual void SaveRegister(int asRegister, int native) = 0;
 
     void WriteTo(int native);
     int AllocateRegister(int asRegister, bool loadData = false, bool first = false, bool kickout =  false);
     void CreateRegisterMap(std::vector<Block> &blocks, std::vector<ASRegister> &totalRegisterUsage);
-private:
+protected:
+    int saveMask;
+    int registerCount;
+    int usedMask;
+    int lastUsedCount;
+    int *lastUsed;
+    int *loadedRegisters;
+    bool *dirtyRegisters;
+    int *usedRegisters;
+
     asCJitArm *jit;
 };
 
