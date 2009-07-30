@@ -35,12 +35,13 @@ asCJitArm::asCJitArm(asIScriptEngine *engine)
     m_refCount = 1;
     m_engine->AddRef();
     registerManager = new ARMRegisterManager(this);
+    floatRegisterManager = new VFPRegisterManager(this);
 }
 
 asCJitArm::~asCJitArm()
 {
+    delete floatRegisterManager;
     delete registerManager;
-    delete[] currMachine;
     m_engine->Release();
 }
 
@@ -691,14 +692,14 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 }
                 case asBC_CpyVtoV4:
                 {
-                    int dst = asBC_SWORDARG0(bytecode);
+                    int asdst = asBC_SWORDARG0(bytecode);
                     int src = asBC_SWORDARG1(bytecode);
 
-                    currSuspend->WriteToRegister(dst);
-                    dst = currSuspend->GetNative(dst);
+                    int dst = currSuspend->GetNative(dst);
                     src = currSuspend->GetNative(src);
                     
                     AddCode(arm_mov(COND_AL, dst, src, 0));
+                    currSuspend->WroteToRegister(asdst);
                     break;
                 }
                 case asBC_CpyGtoV4:
@@ -735,14 +736,16 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 {
                     int reg = currSuspend->GetNative(AS_REGISTER1);
                     int reg2 = currSuspend->GetNative(asBC_SWORDARG0(bytecode));
-                    currSuspend->WriteToRegister(AS_REGISTER1);
-                    currSuspend->WriteToRegister(asBC_SWORDARG0(bytecode));
+                    
+                   
 
                     AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asSVMRegisters, globalVarPointers), IMM_BIT|PRE_BIT));
                     AddCode(arm_ldr(COND_AL, reg, reg, asBC_WORDARG1(bytecode)*4, IMM_BIT|PRE_BIT));
                     AddCode(arm_ldr(COND_AL, reg2, reg, 0, IMM_BIT|PRE_BIT));
                     //*(void**)&register1 = module->globalVarPointers[WORDARG1(l_bc)];
 		            //*(l_fp - asBC_SWORDARG0(l_bc)) = **(asDWORD**)&register1;
+                    currSuspend->WroteToRegister(AS_REGISTER1);
+                    currSuspend->WroteToRegister(asBC_SWORDARG0(bytecode));
 
                     break;
                 }
@@ -755,13 +758,13 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 }
                 case asBC_CpyRtoV4:
                 {
-                    int dst = asBC_SWORDARG0(bytecode);
+                    int asdst = asBC_SWORDARG0(bytecode);
                     int src = currSuspend->GetNative(AS_REGISTER1);
 
-                    currSuspend->WriteToRegister(dst);
-                    dst = currSuspend->GetNative(dst);
+                    int dst = currSuspend->GetNative(dst);
                     
                     AddCode(arm_mov(COND_AL, dst, src, 0));
+                    currSuspend->WroteToRegister(asdst);
                     break;
                 }
                 case asBC_CMPi:
@@ -769,10 +772,10 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     AddCode(arm_cmp(COND_AL, currSuspend->GetNative(asBC_SWORDARG0(bytecode)), currSuspend->GetNative(asBC_SWORDARG1(bytecode)), 0));
 
                     int reg = currSuspend->GetNative(AS_REGISTER1);
-                    currSuspend->WriteToRegister(AS_REGISTER1);
                     AddCode(arm_mov(COND_EQ, reg, 0, IMM_BIT));
                     AddCode(arm_mvn(COND_LT, reg, 1, IMM_BIT));
                     AddCode(arm_mov(COND_GT, reg, 1, IMM_BIT));
+                    currSuspend->WroteToRegister(AS_REGISTER1);
                     break;
                 }
                 case asBC_CMPIi:
@@ -797,7 +800,6 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     }
 
                     reg = currSuspend->GetNative(AS_REGISTER1);
-                    currSuspend->WriteToRegister(AS_REGISTER1);
 
                     const asDWORD *bc = bytecode+size;
                     int testopcode = *(asBYTE*) (bc);
@@ -828,6 +830,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
 
                                 //AddCode(arm_mov(cond1, reg, 1, IMM_BIT));
                                 //AddCode(arm_mov(cond2, reg, 0, IMM_BIT));
+                                //currSuspend->WroteToRegister(AS_REGISTER1);
                                 AddCode(arm_b(jcond, (bytecodePos+size+target)*4, REVISIT_JUMP_BIT));
                                 break;
                             }
@@ -837,6 +840,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     AddCode(arm_mov(COND_EQ, reg, 0, IMM_BIT));
                     AddCode(arm_mvn(COND_LT, reg, 1, IMM_BIT));
                     AddCode(arm_mov(COND_GT, reg, 1, IMM_BIT));
+                    currSuspend->WroteToRegister(AS_REGISTER1);
 
                     break;
                 }
@@ -852,7 +856,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     AddCode(arm_mov(COND_AL, reg, reg, SETCOND_BIT));
                     AddCode(arm_mov(condtrue, reg, 1, IMM_BIT));
                     AddCode(arm_mov(condfalse, reg, 0, IMM_BIT));
-                    currSuspend->WriteToRegister(AS_REGISTER1);
+                    currSuspend->WroteToRegister(AS_REGISTER1);
 
                     break;
                 }
@@ -880,16 +884,16 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 {
                     int dst = asBC_SWORDARG0(bytecode);
                     int r = currSuspend->GetNative(dst);
-                    currSuspend->WriteToRegister(dst);
                     AddCode(arm_add(COND_AL, r, r, 1, IMM_BIT));
+                    currSuspend->WroteToRegister(dst);
                     break;
                 }
                 case asBC_DecVi:
                 {
                     int dst = asBC_SWORDARG0(bytecode);
                     int r = currSuspend->GetNative(dst);
-                    currSuspend->WriteToRegister(dst);
                     AddCode(arm_sub(COND_AL, r, r, 1, IMM_BIT));
+                    currSuspend->WroteToRegister(dst);
                     break;
                 }
                 case asBC_CpyVtoR4:
@@ -897,8 +901,8 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     int reg = asBC_SWORDARG0(bytecode);
                     int r = currSuspend->GetNative(reg);
                     int r2 = currSuspend->GetNative(AS_REGISTER1);
-                    currSuspend->WriteToRegister(AS_REGISTER1);
                     AddCode(arm_mov(COND_AL, r2, r, 0));
+                    currSuspend->WroteToRegister(AS_REGISTER1);
                     break;
                 }
                 case asBC_SetV1:
@@ -908,8 +912,8 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     int reg = asBC_SWORDARG0(bytecode);
                     int arg = asBC_DWORDARG(bytecode);
                     int r = currSuspend->GetNative(reg);
-                    currSuspend->WriteToRegister(reg);
                     LoadConstantValue(r, arg);
+                    currSuspend->WroteToRegister(reg);
                     break;
                 }
                 case asBC_SetG4:
@@ -931,14 +935,14 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 case asBC_SUBi:
                 case asBC_MULi:
                 {
-                    int d   = asBC_SWORDARG0(bytecode);
+                    int asd   = asBC_SWORDARG0(bytecode);
                     int op1 = asBC_SWORDARG1(bytecode);
                     int op2 = asBC_SWORDARG2(bytecode);
 
-                    currSuspend->WriteToRegister(d);
+                    
                     op1 = currSuspend->GetNative(op1);
                     op2 = currSuspend->GetNative(op2);
-                    d  = currSuspend->GetNative(d);
+                    int d  = currSuspend->GetNative(d);
 
                     switch (opcode)
                     {
@@ -946,6 +950,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                         case asBC_SUBi: AddCode(arm_sub(COND_AL, d, op1, op2, 0)); break;
                         case asBC_MULi: AddCode(arm_mul(COND_AL, d, op1, op2, 0)); break;
                     }
+                    currSuspend->WroteToRegister(asd);
                     break;
                 }
                 case asBC_ADDIi:
@@ -953,13 +958,12 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 case asBC_MULIi:
                 {
                     
-                    int d   = asBC_SWORDARG0(bytecode);
+                    int asd   = asBC_SWORDARG0(bytecode);
                     int op1 = asBC_SWORDARG1(bytecode);
                     int op2 = currSuspend->GetNative(REGISTER_TEMP);
 
-                    currSuspend->WriteToRegister(d);
                     op1 = currSuspend->GetNative(op1);
-                    d  = currSuspend->GetNative(d);
+                    int d  = currSuspend->GetNative(d);
                     LoadConstantValue(op2, asBC_INTARG(bytecode+1));
 
                     switch (opcode)
@@ -968,7 +972,8 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                         case asBC_SUBIi: AddCode(arm_sub(COND_AL, d, op1, op2, 0)); break;
                         case asBC_MULIi: AddCode(arm_mul(COND_AL, d, op1, op2, 0)); break;
                     }
-                    registerManager->FreeRegister(op2);
+                    currSuspend->WroteToRegister(asd);
+                    registerManager->FreeRegister(op2);                    
 
 		            break;
                 }

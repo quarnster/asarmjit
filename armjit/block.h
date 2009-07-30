@@ -18,8 +18,8 @@ public:
     ASRegister *GetRegister(int id);
 
     void SetRegisterMapping(int id, int native);
-    int GetNative(int asRegister);
-    void WriteToRegister(int asRegister);
+    int GetNative(int asRegister, ASRegisterType type = ASRegisterType_int);
+    void WroteToRegister(int asRegister);
 
     void End();
     void Return(int flushmask = 0xffff);

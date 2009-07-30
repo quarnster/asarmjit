@@ -59,6 +59,7 @@ private:
     asIScriptEngine *m_engine;
 
     RegisterManager *registerManager;
+    RegisterManager *floatRegisterManager;
 
     const asDWORD *bytecode;
     asDWORD *currMachine;

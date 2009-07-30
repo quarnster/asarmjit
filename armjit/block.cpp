@@ -44,7 +44,7 @@ void Block::AddRegister(int id, bool writtenTo)
     registersUsed.push_back(ASRegister(id, writtenTo));
 }
 
-int Block::GetNative(int asRegister)
+int Block::GetNative(int asRegister, ASRegisterType type)
 {
     ASRegister *reg = NULL;
     for (std::vector<ASRegister>::iterator it = registersUsed.begin(); it < registersUsed.end(); it++)
@@ -67,7 +67,7 @@ int Block::GetNative(int asRegister)
     return r;
 }
 
-void Block::WriteToRegister(int asRegister)
+void Block::WroteToRegister(int asRegister)
 {
     for (std::vector<ASRegister>::iterator it = registersUsed.begin(); it < registersUsed.end(); it++)
     {
@@ -76,7 +76,7 @@ void Block::WriteToRegister(int asRegister)
             assert(it->nativeMapping != REGISTER_EMPTY);
             jit->registerManager->WriteTo(it->nativeMapping);
             it->actuallyWrittenTo = true;
-            break;
+            return;
         }
     }
     assert(0);

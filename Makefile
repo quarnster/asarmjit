@@ -9,6 +9,7 @@ OBJDIR = ipod
 SRCNAMES = test.cpp utils.cpp \
 	armjit/block.cpp \
 	armjit/registermanager.cpp \
+	armjit/asregister.cpp \
 	armjit/armregistermanager.cpp \
 	armjit/vfpregistermanager.cpp \
 	armjit/as_jit_arm.cpp
