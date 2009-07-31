@@ -3,7 +3,7 @@
 //
 
 #include "utils.h"
-#include "as_jit_arm.h"
+#include "armjit/as_jit_arm.h"
 
 #define TESTNAME "asJITTest"
 static const char *script =
@@ -39,7 +39,7 @@ int main(int argc, char ** argv)
 	engine->SetMessageCallback(asMETHOD(COutStream,Callback), &out, asCALL_THISCALL);
 
     asIJITCompiler *jit = new asCJitArm(engine);
-//    engine->SetJITCompiler(jit);
+    engine->SetJITCompiler(jit);
 	asIScriptModule *mod = engine->GetModule(0, asGM_ALWAYS_CREATE);
 	mod->AddScriptSection(TESTNAME, script, strlen(script), 0);
 	mod->Build();

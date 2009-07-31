@@ -59,6 +59,7 @@ int Block::GetNative(int asRegister, ASRegisterType type)
     }
     int r = jit->registerManager->AllocateRegister(asRegister, reg, false, true);
     registerUseMask |= 1 << r;
+    assert(reg || asRegister > REGISTER_EMPTY);
     if (reg)
     {
         reg->nativeMapping = r;
@@ -87,7 +88,10 @@ ASRegister *Block::GetRegister(int id)
     for (std::vector<ASRegister>::iterator it = registersUsed.begin(); it < registersUsed.end(); it++)
     {
         if (it->id == id)
+        {
+            jit->registerManager->UseRegister(it->nativeMapping, it->id);
             return &(*it);
+        }
     }
     return NULL;
 }
@@ -199,18 +203,12 @@ void Block::End()
 */
 }
 
-void Block::AddBlockGlue(Block *nextBlock)
-{
-    if (nextBlock->isSeparateStart)
-    {
-        End();
-    }
-}
 
 void Block::Flush(int flushMask, int freeMask, int cond)
 {
-//    if (hasFlushed)
-//        return;
+    if (jit->settings.regHandling == GLOBAL_LOAD_STORE)
+        return;
+        
     hasFlushed = true;
     int fp_reg = 0;
     // Flush the register values to the stack frame pointer

@@ -1,9 +1,19 @@
-CXXFLAGS = -O2 -I../angelscript/sdk/angelscript/include -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -Iarmjit
-CC = arm-apple-darwin9-gcc-4.0.1
-CXX = arm-apple-darwin9-g++-4.0.1
+CXXFLAGS = -g -I../angelscript/sdk/angelscript/include -Iarmjit
 LD = ld
-LDFLAGS = -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -lstdc++ -langelscript -L../angelscript/sdk/angelscript/lib-ipod
+LDFLAGS = -lstdc++ -langelscript
 DELETER = rm -f
+
+ifneq ($(ARCH),ppc)
+	CC = arm-apple-darwin9-gcc-4.0.1
+	CXX = arm-apple-darwin9-g++-4.0.1
+	CXXFLAGS += -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk
+	LDFLAGS += -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -L../angelscript/sdk/angelscript/lib-ipod
+else
+	CC = gcc
+	CXX = g++
+	LDFLAGS += -L../angelscript/sdk/angelscript/lib
+endif
+ 
 
 OBJDIR = ipod
 SRCNAMES = test.cpp utils.cpp \

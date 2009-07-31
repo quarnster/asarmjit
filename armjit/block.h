@@ -12,7 +12,7 @@ public:
     Block(asCJitArm *j, int start, int end);
 
     ~Block();
-    void Start();
+
     void AddRegister(int id, bool writtenTo = false);
 
     ASRegister *GetRegister(int id);
@@ -21,13 +21,13 @@ public:
     int GetNative(int asRegister, ASRegisterType type = ASRegisterType_int);
     void WroteToRegister(int asRegister);
 
+    void Start();
     void End();
     void Return(int flushmask = 0xffff);
 
     void Flush(int flushMask = 0xffff, int freeMask = 0xffff, int cond = COND_AL);
 
     void Suspend();
-    void AddBlockGlue(Block* nextBlock);
 
     void UpdateBC();
 

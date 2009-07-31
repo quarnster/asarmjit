@@ -14,6 +14,7 @@
 
 #include "as_jit_arm_op.h"
 #include "registermanager.h"
+#include "settings.h"
 
 BEGIN_AS_NAMESPACE
 
@@ -28,7 +29,7 @@ class ASRegister;
 class asCJitArm : public asIJITCompiler
 {
 public:
-    asCJitArm(asIScriptEngine *engine);
+    asCJitArm(asIScriptEngine *engine, const Settings &settings = Settings());
     virtual ~asCJitArm();
 
     virtual int StartCompile(const asDWORD *bytecode, asUINT bytecodeLen, asJITFunction *output);
@@ -69,6 +70,8 @@ private:
     int codelen;
     int datalen;
     int implementedInstructionSize;
+
+    Settings    settings;
 
 
     friend class Block;

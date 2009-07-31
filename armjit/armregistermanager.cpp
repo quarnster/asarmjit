@@ -7,7 +7,7 @@
 #include <vector>
 
 ARMRegisterManager::ARMRegisterManager(asCJitArm *j)
-: RegisterManager(j, 13,  ~CALLCONV_FREE_REGISTERMASK)
+: RegisterManager(j, 8,  ~CALLCONV_FREE_REGISTERMASK)
 {
     usedRegisters[REG_R0] = RESERVED; // used as the "this" pointer for the AS register struct
 }
