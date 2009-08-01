@@ -44,56 +44,18 @@ void Block::AddRegister(int id, bool writtenTo)
     registersUsed.push_back(ASRegister(id, writtenTo));
 }
 
-int Block::GetNative(int asRegister, ASRegisterType type)
+int Block::GetNative(int asRegister, bool writeTo, ASRegisterType type)
 {
-    ASRegister *reg = NULL;
-    for (std::vector<ASRegister>::iterator it = registersUsed.begin(); it < registersUsed.end(); it++)
-    {
-        if (it->id == asRegister)
-        {
-            if (it->nativeMapping != REGISTER_EMPTY)
-                return it->nativeMapping;
-            reg = &(*it);
-            break;
-        }
-    }
-    int r = jit->registerManager->AllocateRegister(asRegister, reg, false, true);
+    if (asRegister >= REGISTER_TEMP)
+        writeTo = true;
+    int r = jit->registerManager->AllocateRegister(asRegister, !writeTo, false, true);
     registerUseMask |= 1 << r;
-    assert(reg || asRegister > REGISTER_EMPTY);
-    if (reg)
-    {
-        reg->nativeMapping = r;
-        // TODO..
-    }
     return r;
 }
 
 void Block::WroteToRegister(int asRegister)
 {
-    for (std::vector<ASRegister>::iterator it = registersUsed.begin(); it < registersUsed.end(); it++)
-    {
-        if (it->id == asRegister)
-        {
-            assert(it->nativeMapping != REGISTER_EMPTY);
-            jit->registerManager->WriteTo(it->nativeMapping);
-            it->actuallyWrittenTo = true;
-            return;
-        }
-    }
-    assert(0);
-}
-
-ASRegister *Block::GetRegister(int id)
-{
-    for (std::vector<ASRegister>::iterator it = registersUsed.begin(); it < registersUsed.end(); it++)
-    {
-        if (it->id == id)
-        {
-            jit->registerManager->UseRegister(it->nativeMapping, it->id);
-            return &(*it);
-        }
-    }
-    return NULL;
+    jit->registerManager->WriteTo(jit->registerManager->FindRegister(asRegister));
 }
 
 void Block::SetRegisterMapping(int id, int native)
@@ -138,6 +100,7 @@ void Block::UpdateBC()
 
 void Block::Return(int flushMask)
 {
+    Flush();
 /*
     if (flushMask == 0xffff)
     {
@@ -183,6 +146,7 @@ void Block::Suspend()
 
 void Block::End()
 {
+    Flush();
 /*
     if (!ended)
     {
@@ -206,6 +170,7 @@ void Block::End()
 
 void Block::Flush(int flushMask, int freeMask, int cond)
 {
+    jit->registerManager->FlushUnmappedRegisters();
     if (jit->settings.regHandling == GLOBAL_LOAD_STORE)
         return;
         

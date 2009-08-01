@@ -10,7 +10,7 @@ static const char *script =
 "int TestInt(int a, int b, int c)          \n"
 "{                                         \n"
 "    int ret = 0;                          \n"
-"    for (int i = 0; i < 250000; i++)       \n"
+"    for (int i = 0; i < 2500; i++)       \n"
 "        for (int j = 0; j < 100; j++)     \n"
 "        {                                 \n"
 "           ret += a*b+i*j;                \n"
@@ -37,9 +37,13 @@ int main(int argc, char ** argv)
  	asIScriptEngine *engine = asCreateScriptEngine(ANGELSCRIPT_VERSION);
 	COutStream out;
 	engine->SetMessageCallback(asMETHOD(COutStream,Callback), &out, asCALL_THISCALL);
+    engine->SetEngineProperty(asEP_BUILD_WITHOUT_LINE_CUES, 1);
 
     asIJITCompiler *jit = new asCJitArm(engine);
-    engine->SetJITCompiler(jit);
+    if (argc != 2)
+    {
+        engine->SetJITCompiler(jit);
+    }
 	asIScriptModule *mod = engine->GetModule(0, asGM_ALWAYS_CREATE);
 	mod->AddScriptSection(TESTNAME, script, strlen(script), 0);
 	mod->Build();

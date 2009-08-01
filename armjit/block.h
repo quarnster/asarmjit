@@ -15,10 +15,8 @@ public:
 
     void AddRegister(int id, bool writtenTo = false);
 
-    ASRegister *GetRegister(int id);
-
     void SetRegisterMapping(int id, int native);
-    int GetNative(int asRegister, ASRegisterType type = ASRegisterType_int);
+    int GetNative(int asRegister, bool writeTo = false, ASRegisterType type = ASRegisterType_int);
     void WroteToRegister(int asRegister);
 
     void Start();

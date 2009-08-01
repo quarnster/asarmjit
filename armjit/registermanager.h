@@ -19,6 +19,7 @@ public:
     void FreeRegister(int native);
     int FindRegister(int asRegister);
     void UseRegister(int native, int as);
+    void TouchRegister(int native);
 
     virtual void LoadRegister(int asRegister, int native) = 0;
     virtual void SaveRegister(int asRegister, int native) = 0;
@@ -26,10 +27,13 @@ public:
     void WriteTo(int native);
     int AllocateRegister(int asRegister, bool loadData = false, bool first = false, bool kickout =  false);
     void CreateRegisterMap(std::vector<Block> &blocks, std::vector<ASRegister> &totalRegisterUsage);
+
+    void FlushUnmappedRegisters();
 protected:
     int saveMask;
     int registerCount;
     int usedMask;
+    int mappedMask;
     int lastUsedCount;
     int *lastUsed;
     int *loadedRegisters;

@@ -295,9 +295,9 @@ void asCJitArm::SplitIntoBlocks(const asDWORD* bytecode, int bytecodeLen)
         bool isCrossSuspendJump = false;
         switch (opcode)
         {
-            case asBC_JitEntry:
-                doBlockBreak = true;
-                break;
+            //case asBC_JitEntry:
+            //    doBlockBreak = true;
+            //    break;
             case asBC_JMP:
             case asBC_JZ:
             case asBC_JNZ:
@@ -351,7 +351,7 @@ void asCJitArm::SplitIntoBlocks(const asDWORD* bytecode, int bytecodeLen)
         }
 
         bool isSuspend = false;
-        if (i+size < bytecodeLen && *(unsigned char*)&bytecode[i+size] == asBC_SUSPEND)
+        if (i+size < bytecodeLen && *(unsigned char*)&bytecode[i+size] == asBC_JitEntry)
         {
             isSuspend = true;
             doBlockBreak = true;
@@ -473,6 +473,7 @@ void asCJitArm::InsertFunctionPrologue(std::vector<ASRegister> &registers)
     AddCode(arm_add(COND_AL, reg, REG_PC, reg, arm_shift_op2reg(SHIFT_LSL, 2, 0)));
     AddCode(arm_bx(COND_AL, reg, 0));
     registerManager->FreeRegister(reg);
+    registerManager->FlushUnmappedRegisters();
 }
 
 static void PrintByteCode(const asDWORD *bytecode)
@@ -696,7 +697,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     int asdst = asBC_SWORDARG0(bytecode);
                     int src = asBC_SWORDARG1(bytecode);
 
-                    int dst = currBlock->GetNative(dst);
+                    int dst = currBlock->GetNative(asdst, true);
                     src = currBlock->GetNative(src);
                     
                     AddCode(arm_mov(COND_AL, dst, src, 0));
@@ -735,10 +736,8 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
 
                 case asBC_LdGRdR4:
                 {
-                    int reg = currBlock->GetNative(AS_REGISTER1);
-                    int reg2 = currBlock->GetNative(asBC_SWORDARG0(bytecode));
-                    
-                   
+                    int reg = currBlock->GetNative(AS_REGISTER1, true);
+                    int reg2 = currBlock->GetNative(asBC_SWORDARG0(bytecode), true);
 
                     AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asSVMRegisters, globalVarPointers), IMM_BIT|PRE_BIT));
                     AddCode(arm_ldr(COND_AL, reg, reg, asBC_WORDARG1(bytecode)*4, IMM_BIT|PRE_BIT));
@@ -762,7 +761,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     int asdst = asBC_SWORDARG0(bytecode);
                     int src = currBlock->GetNative(AS_REGISTER1);
 
-                    int dst = currBlock->GetNative(dst);
+                    int dst = currBlock->GetNative(asdst, true);
                     
                     AddCode(arm_mov(COND_AL, dst, src, 0));
                     currBlock->WroteToRegister(asdst);
@@ -772,7 +771,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 {
                     AddCode(arm_cmp(COND_AL, currBlock->GetNative(asBC_SWORDARG0(bytecode)), currBlock->GetNative(asBC_SWORDARG1(bytecode)), 0));
 
-                    int reg = currBlock->GetNative(AS_REGISTER1);
+                    int reg = currBlock->GetNative(AS_REGISTER1, true);
                     AddCode(arm_mov(COND_EQ, reg, 0, IMM_BIT));
                     AddCode(arm_mvn(COND_LT, reg, 1, IMM_BIT));
                     AddCode(arm_mov(COND_GT, reg, 1, IMM_BIT));
@@ -800,7 +799,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                         registerManager->FreeRegister(reg2);
                     }
 
-                    reg = currBlock->GetNative(AS_REGISTER1);
+                    reg = currBlock->GetNative(AS_REGISTER1, true);
 
                     const asDWORD *bc = bytecode+size;
                     int testopcode = *(asBYTE*) (bc);
@@ -853,7 +852,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 case asBC_TZ:
                 case asBC_TNZ:
                 {
-                    int reg = currBlock->GetNative(AS_REGISTER1);
+                    int reg = currBlock->GetNative(AS_REGISTER1, true);
                     int condtrue, condfalse;
                     GetConditions(opcode, condtrue, condfalse);
                     AddCode(arm_mov(COND_AL, reg, reg, SETCOND_BIT));
@@ -888,7 +887,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 case asBC_IncVi:
                 {
                     int dst = asBC_SWORDARG0(bytecode);
-                    int r = currBlock->GetNative(dst);
+                    int r = currBlock->GetNative(dst); // It IS written to, but it is read from first
                     AddCode(arm_add(COND_AL, r, r, 1, IMM_BIT));
                     currBlock->WroteToRegister(dst);
                     break;
@@ -896,7 +895,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 case asBC_DecVi:
                 {
                     int dst = asBC_SWORDARG0(bytecode);
-                    int r = currBlock->GetNative(dst);
+                    int r = currBlock->GetNative(dst); // It IS written to, but it is read from first
                     AddCode(arm_sub(COND_AL, r, r, 1, IMM_BIT));
                     currBlock->WroteToRegister(dst);
                     break;
@@ -905,7 +904,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 {
                     int reg = asBC_SWORDARG0(bytecode);
                     int r = currBlock->GetNative(reg);
-                    int r2 = currBlock->GetNative(AS_REGISTER1);
+                    int r2 = currBlock->GetNative(AS_REGISTER1, true);
                     AddCode(arm_mov(COND_AL, r2, r, 0));
                     currBlock->WroteToRegister(AS_REGISTER1);
                     break;
@@ -916,7 +915,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 {
                     int reg = asBC_SWORDARG0(bytecode);
                     int arg = asBC_DWORDARG(bytecode);
-                    int r = currBlock->GetNative(reg);
+                    int r = currBlock->GetNative(reg, true);
                     LoadConstantValue(r, arg);
                     currBlock->WroteToRegister(reg);
                     break;
@@ -947,7 +946,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     
                     op1 = currBlock->GetNative(op1);
                     op2 = currBlock->GetNative(op2);
-                    int d  = currBlock->GetNative(asd);
+                    int d  = currBlock->GetNative(asd, true);
 
                     switch (opcode)
                     {
@@ -968,7 +967,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     int op2 = currBlock->GetNative(REGISTER_TEMP);
 
                     op1 = currBlock->GetNative(op1);
-                    int d = currBlock->GetNative(asd);
+                    int d = currBlock->GetNative(asd, true);
                     LoadConstantValue(op2, asBC_INTARG(bytecode+1));
 
                     switch (opcode)

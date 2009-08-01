@@ -14,12 +14,13 @@ RegisterManager::RegisterManager(asCJitArm *j, int regCount, int sMask)
     saveMask        = sMask;
     registerCount   = regCount;
     usedMask        = 0;
+    mappedMask      = 0;
     lastUsedCount   = 0;
-    lastUsed        = new int[registerCount+1];
-    loadedRegisters = new int[registerCount+1];
-    dirtyRegisters  = new bool[registerCount+1];
-    usedRegisters   = new int[registerCount+1];
-    for (int i = 0; i <= registerCount; i++)
+    lastUsed        = new int[registerCount];
+    loadedRegisters = new int[registerCount];
+    dirtyRegisters  = new bool[registerCount];
+    usedRegisters   = new int[registerCount];
+    for (int i = 0; i < registerCount; i++)
     {
         usedRegisters[i] = REGISTER_EMPTY;
     }
@@ -38,20 +39,22 @@ RegisterManager::~RegisterManager()
 
 void RegisterManager::FreeRegister(int native)
 {
+    dirtyRegisters[native] = false;
     usedRegisters[native] = REGISTER_EMPTY;
 }
 
 void RegisterManager::FreeRegisters()
 {
-    for (int r = REG_R1; r <= registerCount; r++)
+    for (int r = REG_R1; r < registerCount; r++)
     {
+        dirtyRegisters[r] = false;
         usedRegisters[r] = REGISTER_EMPTY;
     }
 }
 int RegisterManager::FindRegister(int asRegister)
 {
     int r = REG_R1;
-    for (; r <= registerCount; r++)
+    for (; r < registerCount; r++)
     {
         if (usedRegisters[r] == asRegister)
         {
@@ -62,6 +65,11 @@ int RegisterManager::FindRegister(int asRegister)
     return REGISTER_EMPTY;
 }
 
+void RegisterManager::TouchRegister(int native)
+{
+    lastUsed[native] = lastUsedCount++;
+}
+
 void RegisterManager::UseRegister(int native, int as)
 {
     if (saveMask & (1 << native))
@@ -69,7 +77,7 @@ void RegisterManager::UseRegister(int native, int as)
         // The prologue stm instruction will be patched later
         usedMask |= (1 << native);
     usedRegisters[native] = as;
-    lastUsed[native] = lastUsedCount++;
+    TouchRegister(native);
 }
 
 int RegisterManager::GetUsedMask()
@@ -88,7 +96,7 @@ int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first,
     int unused = REGISTER_EMPTY;
     if (first)
     {
-        for (; r <= registerCount; r++)
+        for (; r < registerCount; r++)
         {
             if (usedRegisters[r] == REGISTER_EMPTY)
             {
@@ -99,7 +107,7 @@ int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first,
     }
     else
     {
-        for (; r <= registerCount; r++)
+        for (; r < registerCount; r++)
         {
             if (usedRegisters[r] == REGISTER_EMPTY && (unused == REGISTER_EMPTY || r >= REG_R12))
                 unused = r;
@@ -113,7 +121,7 @@ int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first,
     if (r == REGISTER_EMPTY)
     {
         // Couldn't find an unused slot, so need to kick out another register
-        int least = registerCount-REQUIRED_SCRATCH_REGISTERS-1;
+        int least = registerCount-REQUIRED_SCRATCH_REGISTERS;
         for (r = registerCount-REQUIRED_SCRATCH_REGISTERS; r < registerCount; r++)
         {
             if (lastUsed[r] < lastUsed[least])
@@ -125,6 +133,7 @@ int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first,
         if (dirtyRegisters[r])
         {
             dirtyRegisters[r] = false;
+            TouchRegister(r);
             SaveRegister(usedRegisters[r], r);
         }
     }
@@ -132,6 +141,21 @@ int RegisterManager::AllocateRegister(int asRegister, bool loadData, bool first,
     if (loadData)
         LoadRegister(asRegister, r);
     return r;
+}
+
+void RegisterManager::FlushUnmappedRegisters()
+{
+    for (int i = 0; i < registerCount; i++)
+    {
+        if (!(mappedMask & (1<< i)) && usedRegisters[i] != REGISTER_EMPTY && usedRegisters[i] != RESERVED)
+        {
+            if (dirtyRegisters[i])
+            {
+                SaveRegister(usedRegisters[i], i);
+            }
+            FreeRegister(i);
+        }
+    }
 }
 
 void RegisterManager::CreateRegisterMap(std::vector<Block> &blocks, std::vector<ASRegister> &totalRegisterUsage)
@@ -177,10 +201,10 @@ void RegisterManager::CreateRegisterMap(std::vector<Block> &blocks, std::vector<
     printf("REGISTERS USED\n");
     printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
     int cutOffIdx = totalRegisterUsage.size();
-    if (totalRegisterUsage.size() > registerCount-REQUIRED_SCRATCH_REGISTERS)
+    if (totalRegisterUsage.size() > registerCount-1-REQUIRED_SCRATCH_REGISTERS)
     {
         // All registers don't fit, so we can't have a 1-1 mapping
-        cutOffIdx = registerCount-REQUIRED_SCRATCH_REGISTERS;
+        cutOffIdx = registerCount-1-REQUIRED_SCRATCH_REGISTERS;
     }
     
     for (int i = 0; i < cutOffIdx; i++)
@@ -200,7 +224,7 @@ void RegisterManager::CreateRegisterMap(std::vector<Block> &blocks, std::vector<
         {
             blocks[j].SetRegisterMapping(totalRegisterUsage[i].id, totalRegisterUsage[i].nativeMapping);
         }
-        // mappedRegisterMask |= 1 << totalRegisterUsage[i].nativeMapping;
+        mappedMask |= 1 << totalRegisterUsage[i].nativeMapping;
     }
     printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
 }
