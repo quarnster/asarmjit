@@ -545,15 +545,30 @@ static void disasm(int machine)
                 wb_mem ? "!" : ""
             );
             int firstReg = 1;
+            int startReg = 0;
+            int endReg = 0;
             for (int i = 0; i <= REG_R15; i++)
             {
                 if (arglist & (1 << i))
                 {
-                    if (!firstReg)
-                        strcat(arg, ", ");
-                    else
-                        firstReg = 0;
-                    strcat(arg, regnames[i]);
+                    if (firstReg)
+                    {
+                        startReg = i;
+                    }
+                    firstReg = 0;
+                    endReg = i;
+                }
+                if (!(arglist & (1 << i)) && !firstReg || i == REG_R15)
+                {
+                    if (arg[strlen(arg)-1] != '{')
+                        strcat(arg, ",");
+                    strcat(arg, regnames[startReg]);
+                    if (endReg != startReg)
+                    {
+                        strcat(arg, "-");
+                        strcat(arg, regnames[endReg]);
+                    }
+                    firstReg = 1;
                 }
             }
             strcat(arg, "}");
@@ -569,7 +584,7 @@ static void disasm(int machine)
 
             if (cond != COND_AL)
                 strcat(opname, condnames[cond]);
-            sprintf(arg, " 0x%x", machine & B_MASK);
+            sprintf(arg, "0x%x", machine & B_MASK);
             break;
         case 6:
         {

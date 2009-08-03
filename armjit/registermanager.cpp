@@ -24,9 +24,6 @@ RegisterManager::RegisterManager(asCJitArm *j, int regCount, int sMask)
     {
         usedRegisters[i] = REGISTER_EMPTY;
     }
-    // Don't overwrite the native stack pointer...
-    if (registerCount > REG_R13)
-        usedRegisters[REG_R13] = RESERVED;
 }
 
 RegisterManager::~RegisterManager()
@@ -45,7 +42,7 @@ void RegisterManager::FreeRegister(int native)
 
 void RegisterManager::FreeRegisters()
 {
-    for (int r = REG_R1; r < registerCount; r++)
+    for (int r = 0; r < registerCount; r++)
     {
         dirtyRegisters[r] = false;
         usedRegisters[r] = REGISTER_EMPTY;
@@ -53,8 +50,7 @@ void RegisterManager::FreeRegisters()
 }
 int RegisterManager::FindRegister(int asRegister)
 {
-    int r = REG_R1;
-    for (; r < registerCount; r++)
+    for (int r = 0; r < registerCount; r++)
     {
         if (usedRegisters[r] == asRegister)
         {
@@ -160,7 +156,7 @@ void RegisterManager::FlushUnmappedRegisters()
 
 void RegisterManager::CreateRegisterMap(std::vector<Block> &blocks, std::vector<ASRegister> &totalRegisterUsage)
 {
-    // mappedRegisterMask = 0;
+    mappedMask = 0;
     // Figure out what registers are used for the whole of the bytecode
     for (std::vector<Block>::iterator it = blocks.begin(); it < blocks.end(); it++)
     {

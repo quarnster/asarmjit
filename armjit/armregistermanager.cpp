@@ -10,6 +10,9 @@ ARMRegisterManager::ARMRegisterManager(asCJitArm *j)
 : RegisterManager(j, 13,  ~CALLCONV_FREE_REGISTERMASK)
 {
     usedRegisters[REG_R0] = RESERVED; // used as the "this" pointer for the AS register struct
+    if (registerCount > REG_R13)
+        // Don't overwrite the native stack pointer...
+        usedRegisters[REG_R13] = RESERVED;
 }
 
 ARMRegisterManager::~ARMRegisterManager()

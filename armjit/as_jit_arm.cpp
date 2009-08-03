@@ -984,9 +984,13 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
 
                 case asBC_SUSPEND:
                 {
-                    currBlock->Suspend();
+                    currBlock->Flush();
+                    int reg = currBlock->GetNative(REGISTER_TEMP);
+                    AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asSVMRegisters, doProcessSuspend), IMM_BIT|PRE_BIT));
+                    AddCode(arm_cmp(COND_AL, reg, 0, IMM_BIT));
+                    AddCode(arm_b(COND_NE, bytecodeLen*4, REVISIT_JUMP_BIT));
+                    registerManager->FreeRegister(reg);
                     break;
-
                 }
                 case asBC_JitEntry:
                     break;
