@@ -2,7 +2,6 @@
 #define __INCLUDED_REGISTERMANAGER_H
 
 #include "asregister.h"
-#include "as_jit_arm_op.h"
 #include "block.h"
 
 

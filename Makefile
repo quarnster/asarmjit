@@ -1,4 +1,4 @@
-CXXFLAGS = -g -I../angelscript/sdk/angelscript/include -Iarmjit
+CXXFLAGS = -g -Wall -I../angelscript/sdk/angelscript/include -Iarmjit
 LD = ld
 LDFLAGS = -lstdc++ -langelscript
 DELETER = rm -f
@@ -16,13 +16,15 @@ endif
  
 
 OBJDIR = ipod
-SRCNAMES = test.cpp utils.cpp \
+SRCNAMES = \
 	armjit/block.cpp \
 	armjit/registermanager.cpp \
 	armjit/asregister.cpp \
 	armjit/armregistermanager.cpp \
 	armjit/vfpregistermanager.cpp \
-	armjit/as_jit_arm.cpp
+	armjit/as_jit_arm.cpp \
+	armjit/as_jit_arm_op.cpp \
+	test.cpp utils.cpp
 SRCDIR = ./
 
 OBJ = $(SRCNAMES:.cpp=.o)

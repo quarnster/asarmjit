@@ -38,6 +38,7 @@ int main(int argc, char ** argv)
 	COutStream out;
 	engine->SetMessageCallback(asMETHOD(COutStream,Callback), &out, asCALL_THISCALL);
     engine->SetEngineProperty(asEP_BUILD_WITHOUT_LINE_CUES, 1);
+    engine->SetEngineProperty(asEP_INCLUDE_JIT_INSTRUCTIONS, 1);
 
     asIJITCompiler *jit = new asCJitArm(engine);
     if (argc != 2)
@@ -64,7 +65,7 @@ int main(int argc, char ** argv)
 
 	if( r != 0 )
 	{
-		printf("Execution didn't terminate with asEXECUTION_FINISHED\n", TESTNAME);
+		printf("Execution didn't terminate with asEXECUTION_FINISHED\n");
 		if( r == asEXECUTION_EXCEPTION )
 		{
 			printf("Script exception\n");
@@ -77,7 +78,7 @@ int main(int argc, char ** argv)
 	else
 	{
 		printf("Time = %f secs\n", time);
-		printf("returned: %d\n", ctx->GetReturnDWord());
+		printf("returned: %d\n", (int) ctx->GetReturnDWord());
 	}
 
 

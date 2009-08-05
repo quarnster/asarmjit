@@ -12,7 +12,6 @@
 #include "angelscript.h"
 #include "vector"
 
-#include "as_jit_arm_op.h"
 #include "registermanager.h"
 #include "settings.h"
 
@@ -32,10 +31,7 @@ public:
     asCJitArm(asIScriptEngine *engine, const Settings &settings = Settings());
     virtual ~asCJitArm();
 
-    virtual int StartCompile(const asDWORD *bytecode, asUINT bytecodeLen, asJITFunction *output);
-    virtual int ResolveJitEntry(asUINT bytecodeOffset);
-    virtual void EndCompile();
-
+    virtual int CompileFunction(asIScriptFunction *func, asJITFunction *output);
     virtual void ReleaseJITFunction(asJITFunction jitFunction);
 
     int GetImplementedInstructionCount();
@@ -62,9 +58,9 @@ private:
     RegisterManager *registerManager;
     RegisterManager *floatRegisterManager;
 
-    const asDWORD *bytecode;
+    asDWORD *bytecode;
     asDWORD *currMachine;
-    asDWORD currData[256];
+    int currData[256];
     int currCodeOffset;
     int prologueLen;
     int codelen;

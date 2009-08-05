@@ -29,7 +29,7 @@ class ASRegister
 {
 public:
     ASRegister(int i, bool w)
-    : id(i), firstUseWriteTo(w), writtenTo(w), score(1), nativeMapping(REGISTER_EMPTY), actuallyWrittenTo(0)
+    : id(i), nativeMapping(REGISTER_EMPTY), score(1), writtenTo(w),  actuallyWrittenTo(0), firstUseWriteTo(w)
     {
         
     }

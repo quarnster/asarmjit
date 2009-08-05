@@ -64,7 +64,7 @@ void asCJitArm::AddCode(int code)
 {
 #ifdef VERBOSE_DEBUG
     printf("        ; adding ");
-    disasm(code);
+    arm_disasm(code);
 #endif
     currMachine[currCodeOffset+codelen++] = code;
 }
@@ -289,6 +289,9 @@ void asCJitArm::SplitIntoBlocks(const asDWORD* bytecode, int bytecodeLen)
                     currBlock->AddRegister(AS_REGISTER1, true);
                 break;
             }
+            default:
+                printf("unimplemented bctype...\n");
+                break;
         }
 
         bool doBlockBreak = false;
@@ -583,9 +586,10 @@ static void GetConditions(asDWORD testopcode, int &cond1, int &cond2)
     }    
 }
 
-int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITFunction *output)
+int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
 {
-    this->bytecode = bytecode;
+    asUINT bytecodeLen;
+    this->bytecode = func->GetByteCode(&bytecodeLen);
     currBlock = NULL;
 
     currMachine = (asDWORD*) CodeAlloc();
@@ -608,7 +612,8 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
     currBlock = &blocks[blockPos];
     currBlock->nativeOffset = 0;
     Block * lastBlock = NULL;
-    while (bytecodePos < bytecodeLen)
+    asDWORD * end = bytecode + bytecodeLen;
+    while (bytecode < end)
     {
         asDWORD opcode = *(unsigned char*)bytecode;
         int size = asBCTypeSize[asBCInfo[opcode].type];
@@ -717,7 +722,7 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                 /*
                 case asBC_CpyVtoG4:
                 {
-                    //*(asDWORD*)module->globalVarPointers[WORDARG0(l_bc)] = *(asDWORD*)(l_fp - asBC_SWORDARG1(l_bc));
+                    // *(asDWORD*)module->globalVarPointers[WORDARG0(l_bc)] = *(asDWORD*)(l_fp - asBC_SWORDARG1(l_bc));
                     int reg = currBlock->GetNative(REGISTER_TEMP);
                     int reg2 = currBlock->GetNative(REGISTER_TEMP2);
                     AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asCContext, module), IMM_BIT|PRE_BIT));
@@ -993,8 +998,10 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
                     break;
                 }
                 case asBC_JitEntry:
+                {
+                    asBC_SWORDARG0(bytecode) = currBlock->nativeOffset;
                     break;
-
+                }
                 case asBC_RET:
                 {
                     implementedInstructionSize -= size;
@@ -1054,10 +1061,13 @@ int asCJitArm::StartCompile(const asDWORD * bytecode, asUINT bytecodeLen, asJITF
         }
 #ifdef VERBOSE_DEBUG
         printf("0x%.8x ", i*4);
-        disasm(currMachine[i]);
+        arm_disasm(currMachine[i]);
 #endif
     }
     *output = (asJITFunction) currMachine;
+
+    blocks.clear();
+    registerManager->FreeRegisters();
 
     return asSUCCESS;
 }
@@ -1070,26 +1080,6 @@ void asCJitArm::ReleaseJITFunction(asJITFunction jitFunction)
 int asCJitArm::GetCurrentBytecodePosition()
 {
     return bytecodePos;
-}
-
-int asCJitArm::ResolveJitEntry(asUINT offset)
-{
-    for (std::vector<Block>::iterator it = blocks.begin(); it < blocks.end(); it++)
-    {
-        if (it->byteCodeStart == offset /*&& !it->hasUnimplementedBytecode*/)
-        {
-            printf("Returning: 0x%x\n", it->nativeOffset);
-            return it->nativeOffset;
-        }
-    }
-    printf("Block not found...\n");
-    return -1;
-}
-
-void asCJitArm::EndCompile()
-{
-    blocks.clear();
-    registerManager->FreeRegisters();
 }
 
 void asCJitArm::InsertFunctionEpilogue(std::vector<ASRegister> &registerUsage)

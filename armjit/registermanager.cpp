@@ -197,7 +197,7 @@ void RegisterManager::CreateRegisterMap(std::vector<Block> &blocks, std::vector<
     printf("REGISTERS USED\n");
     printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
     int cutOffIdx = totalRegisterUsage.size();
-    if (totalRegisterUsage.size() > registerCount-1-REQUIRED_SCRATCH_REGISTERS)
+    if (totalRegisterUsage.size() > (unsigned int) (registerCount-1-REQUIRED_SCRATCH_REGISTERS))
     {
         // All registers don't fit, so we can't have a 1-1 mapping
         cutOffIdx = registerCount-1-REQUIRED_SCRATCH_REGISTERS;

@@ -2,6 +2,7 @@
 #define __INCLUDED_BLOCK_H
 
 #include "as_jit_arm.h"
+#include "as_jit_arm_op.h"
 #include "registermanager.h"
 
 class asCJitArm;
