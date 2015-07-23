@@ -23,10 +23,12 @@ BEGIN_AS_NAMESPACE
 #include <sys/mman.h>
 #endif
 
+#include <assert.h>
+
 #define VERBOSE_DEBUG
 
 // TODO: don't hardcode this
-#define CODE_BLOCK_SIZE 4096 
+#define CODE_BLOCK_SIZE 4096
 
 
 asCJitArm::asCJitArm(asIScriptEngine *engine, const Settings &set)
@@ -206,7 +208,7 @@ void asCJitArm::SplitIntoBlocks(const asDWORD* bytecode, int bytecodeLen)
     int nextJump = 0;
     JumpTarget t;
     t.pos = 0xfffffff;// Something ridiculous so that atleast it isn't empty
-    jumpTargets.push_back(t); 
+    jumpTargets.push_back(t);
 
     Block s(this, 0, 0);
     s.isSeparateStart = true;
@@ -579,11 +581,11 @@ static void GetConditions(asDWORD testopcode, int &cond1, int &cond2)
         case asBC_TNP:
             cond1 = COND_LE;
             cond2 = COND_GT;
-            break;            
+            break;
         default:
             assert(0);
             break;
-    }    
+    }
 }
 
 int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
@@ -642,7 +644,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
 
             switch (opcode)
             {
-                case asBC_PUSH:
+                case asBC_PSF:
                 {
                     int amount = asBC_WORDARG0(bytecode);
                     int sp_reg = currBlock->GetNative(AS_STACK_POINTER);
@@ -681,6 +683,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     registerManager->FreeRegister(sp_reg);
 		            break;
                 }
+                /*
                 case asBC_PshG4:
                 {
                     int sp_reg = currBlock->GetNative(AS_STACK_POINTER);
@@ -689,14 +692,15 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     AddCode(arm_str(COND_AL, sp_reg, REG_R0, offsetof(asSVMRegisters, stackPointer), PRE_BIT|IMM_BIT));
 
                     int reg = currBlock->GetNative(REGISTER_TEMP);
-                    
+
                     AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asSVMRegisters, globalVarPointers), IMM_BIT|PRE_BIT));
-                    AddCode(arm_ldr(COND_AL, reg, reg, asBC_WORDARG0(bytecode)*4, IMM_BIT|PRE_BIT));
+                    AddCode(arm_ldr(COND_AL, reg, reg, asBC_PTRARG(bytecode), IMM_BIT|PRE_BIT));
                     AddCode(arm_ldr(COND_AL, reg, reg, 0, IMM_BIT|PRE_BIT));
                     AddCode(arm_str(COND_AL, reg, sp_reg, 0, PRE_BIT|IMM_BIT));
                     registerManager->FreeRegister(reg);
                     break;
                 }
+                */
                 case asBC_CpyVtoV4:
                 {
                     int asdst = asBC_SWORDARG0(bytecode);
@@ -704,21 +708,21 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
 
                     int dst = currBlock->GetNative(asdst, true);
                     src = currBlock->GetNative(src);
-                    
+
                     AddCode(arm_mov(COND_AL, dst, src, 0));
                     currBlock->WroteToRegister(asdst);
                     break;
                 }
-                case asBC_CpyGtoV4:
-                {
-                    int reg = currBlock->GetNative(asBC_SWORDARG0(bytecode));
-                    AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asSVMRegisters, globalVarPointers), IMM_BIT|PRE_BIT));
-                    AddCode(arm_ldr(COND_AL, reg, reg, asBC_WORDARG1(bytecode)*4, IMM_BIT|PRE_BIT));
-                    AddCode(arm_ldr(COND_AL, reg, reg, 0, IMM_BIT|PRE_BIT));
-                    // registerManager->FreeRegister(reg);
+                // case asBC_CpyGtoV4:
+                // {
+                //     int reg = currBlock->GetNative(asBC_SWORDARG0(bytecode));
+                //     AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asSVMRegisters, globalVarPointers), IMM_BIT|PRE_BIT));
+                //     AddCode(arm_ldr(COND_AL, reg, reg, asBC_WORDARG1(bytecode)*4, IMM_BIT|PRE_BIT));
+                //     AddCode(arm_ldr(COND_AL, reg, reg, 0, IMM_BIT|PRE_BIT));
+                //     // registerManager->FreeRegister(reg);
 
-                    break;
-                }
+                //     break;
+                // }
                 /*
                 case asBC_CpyVtoG4:
                 {
@@ -738,7 +742,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     break;
                 }
                 */
-
+/*
                 case asBC_LdGRdR4:
                 {
                     int reg = currBlock->GetNative(AS_REGISTER1, true);
@@ -747,13 +751,14 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     AddCode(arm_ldr(COND_AL, reg, REG_R0, offsetof(asSVMRegisters, globalVarPointers), IMM_BIT|PRE_BIT));
                     AddCode(arm_ldr(COND_AL, reg, reg, asBC_WORDARG1(bytecode)*4, IMM_BIT|PRE_BIT));
                     AddCode(arm_ldr(COND_AL, reg2, reg, 0, IMM_BIT|PRE_BIT));
-                    //*(void**)&register1 = module->globalVarPointers[WORDARG1(l_bc)];
-		            //*(l_fp - asBC_SWORDARG0(l_bc)) = **(asDWORD**)&register1;
+                    // *(void**)&register1 = module->globalVarPointers[WORDARG1(l_bc)];
+		            // *(l_fp - asBC_SWORDARG0(l_bc)) = **(asDWORD**)&register1;
                     currBlock->WroteToRegister(AS_REGISTER1);
                     currBlock->WroteToRegister(asBC_SWORDARG0(bytecode));
 
                     break;
                 }
+                */
                 case asBC_WRTV4:
                 {
                     int reg = currBlock->GetNative(AS_REGISTER1);
@@ -767,7 +772,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     int src = currBlock->GetNative(AS_REGISTER1);
 
                     int dst = currBlock->GetNative(asdst, true);
-                    
+
                     AddCode(arm_mov(COND_AL, dst, src, 0));
                     currBlock->WroteToRegister(asdst);
                     break;
@@ -886,7 +891,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     int target = asBC_INTARG(bytecode);
                     currBlock->Flush();
                     AddCode(arm_b(COND_AL, (bytecodePos+size+target)*4, REVISIT_JUMP_BIT));
-                    
+
                     break;
                 }
                 case asBC_IncVi:
@@ -925,6 +930,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     currBlock->WroteToRegister(reg);
                     break;
                 }
+                /*
                 case asBC_SetG4:
                 {
 
@@ -940,6 +946,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     registerManager->FreeRegister(reg2);
                     break;
                 }
+                */
                 case asBC_ADDi:
                 case asBC_SUBi:
                 case asBC_MULi:
@@ -948,7 +955,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     int op1 = asBC_SWORDARG1(bytecode);
                     int op2 = asBC_SWORDARG2(bytecode);
 
-                    
+
                     op1 = currBlock->GetNative(op1);
                     op2 = currBlock->GetNative(op2);
                     int d  = currBlock->GetNative(asd, true);
@@ -966,7 +973,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                 case asBC_SUBIi:
                 case asBC_MULIi:
                 {
-                    
+
                     int asd = asBC_SWORDARG0(bytecode);
                     int op1 = asBC_SWORDARG1(bytecode);
                     int op2 = currBlock->GetNative(REGISTER_TEMP);
@@ -982,7 +989,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                         case asBC_MULIi: AddCode(arm_mul(COND_AL, d, op1, op2, 0)); break;
                     }
                     currBlock->WroteToRegister(asd);
-                    registerManager->FreeRegister(op2);                    
+                    registerManager->FreeRegister(op2);
 
 		            break;
                 }
@@ -1052,7 +1059,7 @@ int asCJitArm::CompileFunction(asIScriptFunction *func, asJITFunction *output)
                     target = -(i-prologueLen-currBlock->nativeOffset+2);
                     if (!currBlock->isCrossSuspendJumpTarget)
                         target += currBlock->loadInstructions;
-                    
+
                     //printf("found! Real offset is %d\n", target);
                     currMachine[i] = (currMachine[i]&~B_MASK) | (target & B_MASK);
                     break;

@@ -1,19 +1,8 @@
-CXXFLAGS = -g -Wall -I../angelscript/sdk/angelscript/include -Iarmjit
+ASDIR = ${HOME}/code/3rdparty/angelscript
+CXXFLAGS = -arch i386 -g -Wall -I${ASDIR}/sdk/angelscript/include -Iarmjit
 LD = ld
-LDFLAGS = -lstdc++ -langelscript
+LDFLAGS = -arch i386 -lstdc++ -L${ASDIR}/sdk/angelscript/lib -langelscript
 DELETER = rm -f
-
-ifneq ($(ARCH),ppc)
-	CC = arm-apple-darwin9-gcc-4.0.1
-	CXX = arm-apple-darwin9-g++-4.0.1
-	CXXFLAGS += -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk
-	LDFLAGS += -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.2.sdk -L../angelscript/sdk/angelscript/lib-ipod
-else
-	CC = gcc
-	CXX = g++
-	LDFLAGS += -L../angelscript/sdk/angelscript/lib
-endif
- 
 
 OBJDIR = ipod
 SRCNAMES = \
@@ -28,28 +17,20 @@ SRCNAMES = \
 SRCDIR = ./
 
 OBJ = $(SRCNAMES:.cpp=.o)
-platform=/Developer/Platforms/iPhoneOS.platform
-allocate=${platform}/Developer/usr/bin/codesign_allocate 
 
 
 BIN = asjittest
-	
+
 all: $(BIN)
 
 $(BIN): $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
-	export CODESIGN_ALLOCATE=${allocate} && codesign -fs "Fredrik Ehnbom" $(BIN) 
-
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
-depend:
-	makedepend $(SRCNAMES) -f Makefile.depend 2> /dev/null
-	
 clean:
 	$(DELETER) $(OBJ) $(BIN) *.bak
 
 
 .PHONY: all clean install uninstall
-include Makefile.depend

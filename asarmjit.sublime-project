@@ -1,0 +1,19 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		},
+		{
+			"path": "/Users/quarnster/code/3rdparty/angelscript"
+		}
+	],
+	"settings":
+	{
+		"sublimeclang_options": [
+			"-I${home}/code/asarmjit",
+			"-I${home}/code/3rdparty/angelscript/sdk/angelscript/include",
+			"-xc++"
+		]
+	}
+}

@@ -50,7 +50,7 @@ int main(int argc, char ** argv)
 	mod->Build();
 
 	asIScriptContext *ctx = engine->CreateContext();
-	ctx->Prepare(mod->GetFunctionIdByDecl("int TestInt(int a, int b, int c)"));
+	ctx->Prepare(mod->GetFunctionByDecl("int TestInt(int a, int b, int c)"));
     ctx->SetArgDWord(0, 3);
     ctx->SetArgDWord(1, 5);
     ctx->SetArgDWord(2, 2);
@@ -69,7 +69,7 @@ int main(int argc, char ** argv)
 		if( r == asEXECUTION_EXCEPTION )
 		{
 			printf("Script exception\n");
-			asIScriptFunction *func = engine->GetFunctionDescriptorById(ctx->GetExceptionFunction());
+			asIScriptFunction *func = ctx->GetExceptionFunction();
 			printf("Func: %s\n", func->GetName());
 			printf("Line: %d\n", ctx->GetExceptionLineNumber());
 			printf("Desc: %s\n", ctx->GetExceptionString());
